@@ -4,6 +4,6 @@ folium
 numpy 
 seaborn
 matplotlib
-sklearn
+scikit-learn
 webbrowser
 os
