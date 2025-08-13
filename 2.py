@@ -1,19 +1,21 @@
+import streamlit as st
 import pandas as pd
-from seaborn import heatmap
 from sklearn.cluster import DBSCAN
 from sklearn.metrics import silhouette_score
+from sklearn.preprocessing import StandardScaler
 import folium
 from folium.plugins import HeatMap
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import StandardScaler
 import webbrowser
 import os
-import streamlit as st
 
+# Streamlit page config
 st.set_page_config(page_title="Crime Clustering Analysis", layout="wide")
 st.title("🚔 Crime Clustering Analysis with DBSCAN")
+
+# Load dataset
 @st.cache_data
 def load_data():
     df = pd.read_csv("crime.csv")
@@ -22,27 +24,25 @@ def load_data():
 
 df = load_data()
 
-df = df.dropna(subset=["Longitude", "Latitude"]).copy()
+# Clustering
+x = df[["Longitude", "Latitude"]].dropna()
+ss = StandardScaler()
+x_s = ss.fit_transform(x)
 
-x=df[["Longitude","Latitude"]].dropna()
-
-ss=StandardScaler()
-x_s=ss.fit_transform(x)
-
-db=DBSCAN(eps=1.0,min_samples=2)
+db = DBSCAN(eps=1.0, min_samples=2)
 db.fit(x_s)
 
-labels=db.labels_
-score=silhouette_score(x_s,labels)
-# print(score)
+labels = db.labels_
+score = silhouette_score(x_s, labels)
+df["cluster"] = labels
 
-df["cluster"]=labels
-
+# Sidebar with stats
 st.sidebar.header("📈 Clustering Info")
 st.sidebar.write(f"**Silhouette Score:** {score:.3f}")
 st.sidebar.write(f"**Number of Clusters:** {len(set(labels)) - (1 if -1 in labels else 0)}")
 st.sidebar.write(f"**Noise Points:** {list(labels).count(-1)}")
 
+# Insights
 st.subheader("📊 Insights")
 col1, col2 = st.columns(2)
 with col1:
@@ -54,32 +54,28 @@ with col2:
     most_common = df.groupby("cluster")["Crime type"].agg(lambda x: x.value_counts().index[0])
     st.write(most_common)
 
-from streamlit.components.v1 import html
-
-if st.button("🌍 Show Folium Map in Browser"):
+# Map Button - Opens in Browser
+if st.button("🌍 Open Folium Map in Browser"):
     m = folium.Map(location=[x["Latitude"].mean(), x["Longitude"].mean()], zoom_start=13)
 
-    heat_data = [[row['Latitude'], row['Longitude']] 
-                 for _, row in df.iterrows() 
-                 if not np.isnan(row['Latitude']) and not np.isnan(row['Longitude'])]
+    # Heatmap Layer
+    heat_data = [[row['Latitude'], row['Longitude']] for _, row in df.iterrows()]
     HeatMap(heat_data, radius=8, blur=6, max_zoom=13).add_to(m)
 
+    # Cluster Layer
     colors = ['red', 'blue', 'green', 'purple', 'orange', 
               'darkred', 'lightblue', 'lightgreen', 'beige']
     cluster_layer = folium.FeatureGroup(name="Crime Clusters")
-
     for _, row in df.iterrows():
-        popup_text = f"""
-        <b>
-        Crime ID: {row['Crime ID']}<br>
-        Month: {row['Month']}<br>
-        Reported by: {row['Reported by']}<br>
-        Location: {row['Location']}<br>
-        Crime type: {row['Crime type']}<br>
-        Last outcome: {row['Last outcome category']}<br>
-        Cluster: {row['cluster']}
-        </b>
-        """
+        popup_text = (
+            f"<b>Crime ID:</b> {row['Crime ID']}<br>"
+            f"<b>Month:</b> {row['Month']}<br>"
+            f"<b>Reported by:</b> {row['Reported by']}<br>"
+            f"<b>Location:</b> {row['Location']}<br>"
+            f"<b>Crime type:</b> {row['Crime type']}<br>"
+            f"<b>Last outcome:</b> {row['Last outcome category']}<br>"
+            f"<b>Cluster:</b> {row['cluster']}"
+        )
         folium.CircleMarker(
             location=[row['Latitude'], row['Longitude']],
             radius=4,
@@ -91,14 +87,17 @@ if st.button("🌍 Show Folium Map in Browser"):
     cluster_layer.add_to(m)
     folium.LayerControl(position="topright", collapsed=False).add_to(m)
 
-    # Render the map directly in Streamlit (no need for external browser)
-    html(m._repr_html_(), height=600)
+    # Save and open in browser
+    map_file = "crime_clusters_heatmap.html"
+    m.save(map_file)
+    webbrowser.open('file://' + os.path.realpath(map_file))
 
+# Pairplot Button - Shows in App
 if st.button("📈 Show Pairplot"):
     fig = sns.pairplot(df[['Longitude', 'Latitude', 'cluster']], hue="cluster", palette="husl")
     plt.suptitle("Pairplot of DBSCAN Clusters", y=1.02)
     st.pyplot(fig)
 
-
+# Footer
 st.markdown("---")
-st.markdown("📌 **Developed by:** Muhammad Sarab Rafique | 🔍 DBSCAN | 📍 Folium | 📊 Seaborn")
+st.markdown("📌 **Developed by:** Your Name | 🔍 DBSCAN | 📍 Folium | 📊 Seaborn")
