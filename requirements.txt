@@ -1,9 +1,7 @@
-Streamlit
-pandas 
+streamlit
+pandas
 folium
-numpy 
+numpy
 seaborn
 matplotlib
 scikit-learn
-webbrowser
-os
