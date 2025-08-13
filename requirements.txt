@@ -1,0 +1,9 @@
+Streamlit
+pandas 
+folium
+numpy 
+seaborn
+matplotlib
+sklearn
+webbrowser
+os
